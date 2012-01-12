@@ -1,15 +1,17 @@
 # The TARGET variable determines what target system the application is
 # compiled for. It either refers to an XN file in the source directories
 # or a valid argument for the --target option when compiling
-TARGET =
+TARGET ?= XR-AVB-LC-BRD
 
 # The APP_NAME variable determines the name of the final .xe file. It should
 # not include the .xe postfix. If left blank the name will default to
 # the project name
 APP_NAME =
 
+XSIM ?= 1
+
 # The USED_MODULES variable lists other module used by the application.
-USED_MODULES =
+USED_MODULES = module_phy_setup
 
 # The flags passed to xcc when building the application
 # You can also set the following to override flags for a particular language:
@@ -17,9 +19,21 @@ USED_MODULES =
 # If the variable XCC_MAP_FLAGS is set it overrides the flags passed to
 # xcc for the final link (mapping) stage.
 ifeq "$(CONFIG)" "Debug"
-XCC_FLAGS = -g -O0
+    XCC_FLAGS = -g -O0
 else
-XCC_FLAGS = -g -O3
+    XCC_FLAGS = -g -O3
+endif
+
+ifeq ($(TARGET),XR-AVB-LC-BRD)
+    XCC_FLAGS += -DPORT_ETH_RST_N=PORT_ETH_RSTN
+    XCC_FLAGS += -DPHY_ADDRESS=0
+    XCC_FLAGS += -DETH_CORE_ID=1
+    ifeq (($XSIM),0)
+        XCC_FLAGS += -DXSCOPE_ENABLED=1
+        XCC_FLAGS += -lxscope
+    else
+        XCC_FLAGS += -DSIMULATION
+    endif
 endif
 
 # The VERBOSE variable, if set to 1, enables verbose output from the make
