@@ -25,6 +25,11 @@ on stdcore[ETH_CORE_ID]: smi_interface_t smi = { PORT_ETH_MDIO, PORT_ETH_MDC, 0 
 on stdcore[ETH_CORE_ID]: smi_interface_t smi = { PORT_ETH_RST_N_MDIO, PORT_ETH_MDC, 1 };
 #endif
 
+#ifdef SIMULATION
+on stdcore[ETH_CORE_ID]: out port tx_25_mhz = XS1_PORT_1K;
+on stdcore[ETH_CORE_ID]: clock clk = XS1_CLKBLK_3;
+#endif
+
 void wait(int ticks)
 {
 	timer tmr;
@@ -34,7 +39,7 @@ void wait(int ticks)
 }
 
 #pragma unsafe arrays
-void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int bad_crc)
+void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int nibbles)
 {
 	register const unsigned poly = 0xEDB88320;
 	timer tmr;
@@ -49,9 +54,25 @@ void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int 
 	int j=0;
 	bytes_left = length;
     */
-    int nibbles = 2;
+    if (nibbles < 2) return;
     
-    partout(p_mii_txd, 8, 0x5555);
+    if (nibbles >= 2 && nibbles < 8)
+    {
+        partout(p_mii_txd, nibbles*4, 0x55555555);
+        tmr :> time;
+        time+=96;
+        tmr when timerafter(time) :> int _;
+        return;
+    }
+    
+    if (nibbles == 8) p_mii_txd <: 0x55555555;
+    
+    if (nibbles > 8)
+    {
+        p_mii_txd <: 0x55555555;
+    }
+    
+    
     
     
     /*
@@ -114,10 +135,6 @@ void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int 
 	}
     
     */
-		
-		tmr :> time;
-		time+=96;
-		tmr when timerafter(time) :> int _;
 }
 
 #pragma unsafe arrays
@@ -134,6 +151,8 @@ void mii_transmit(unsigned int buf[], int length, out buffered port:32 p_mii_txd
 
 	int j=0;
 	bytes_left = length;
+    
+    printstrln("Here");
 
 	p_mii_txd <: 0x55555555;
 	p_mii_txd <: 0x55555555;
@@ -239,8 +258,10 @@ int test(out buffered port:32 p_mii_txd)
     set_seq_num(buf, 0);
     
     printstrln(""); // Flush the output. Bug in XScope it seems.
+    mii_transmit(buf, 100, p_mii_txd, 0);
     
-    mii_transmit_frags(buf, p_mii_txd, 0);
+    
+    // mii_transmit_frags(buf, p_mii_txd, 2);
 
     printstrln("Finish");
 
@@ -265,10 +286,22 @@ int main(void)
             #endif
             ,smi, mii);
             
+            #ifndef SIMULATION
             wait(600000000);
+            #endif
             
             test(mii.p_mii_txd);
         }
+        #ifdef SIMULATION
+        on stdcore[ETH_CORE_ID]:
+        {
+            configure_clock_rate(clk, 100, 4);
+            configure_port_clock_output(tx_25_mhz, clk);
+            start_clock(clk);
+            
+            while (1);
+        }
+        #endif
     }
 
     return 0;
