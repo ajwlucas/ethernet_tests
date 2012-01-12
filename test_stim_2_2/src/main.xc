@@ -45,6 +45,7 @@ void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int 
 	timer tmr;
 	unsigned int time;
 
+	int i = 0, j = 0;
     /*
 	int bytes_left;
 	unsigned int crc = 0;
@@ -54,24 +55,64 @@ void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int 
 	int j=0;
 	bytes_left = length;
     */
-    if (nibbles < 2) return;
-    
-    if (nibbles >= 2 && nibbles < 8)
-    {
-        partout(p_mii_txd, nibbles*4, 0x55555555);
-        tmr :> time;
-        time+=96;
-        tmr when timerafter(time) :> int _;
-        return;
-    }
-    
-    if (nibbles == 8) p_mii_txd <: 0x55555555;
-    
-    if (nibbles > 8)
-    {
-        p_mii_txd <: 0x55555555;
-    }
-    
+    if (nibbles < 2)
+	{
+		return;
+	}
+	else if (nibbles < 8)
+	{
+		partout(p_mii_txd, nibbles*4, 0x55555555);
+	}
+	else if (nibbles == 8)
+	{
+		p_mii_txd <: 0x55555555;
+	}
+	else if (nibbles < 16)
+	{
+		p_mii_txd <: 0x55555555;
+		partout(p_mii_txd, (nibbles - 8)*4, 0x55555555);
+	}
+	else if (nibbles == 16)
+	{
+		p_mii_txd <: 0x55555555;
+		p_mii_txd <: 0x55555555;
+	}
+	else if (nibbles < 24)
+	{
+		p_mii_txd <: 0x55555555;
+		p_mii_txd <: 0x55555555;
+		partout(p_mii_txd, (nibbles - 16)*4, 0x55555555);
+	}
+	else
+	{
+		int data_nibbles = nibbles - 24;
+		int nibls_left = 0;
+		
+		p_mii_txd <: 0x55555555;
+		p_mii_txd <: 0x55555555;
+		p_mii_txd <: 0xD5555555;
+		
+		if (nibbles > 24)
+		{
+			if (data_nibbles < 8)
+			{
+				partout(p_mii_txd, data_nibbles, buf[i]);
+			}
+			else
+			{
+				// j = 0, data_nibbles = 17
+				while (j < (data_nibbles - 7))
+				{
+					p_mii_txd <: buf[i];
+					i++;
+					j += 8;
+				}
+				
+				nibls_left = data_nibbles - j;
+			}
+		
+		}
+	}
     
     
     
