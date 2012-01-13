@@ -91,7 +91,7 @@ int receiver(chanend rx)
 {
 	unsigned char rxbuffer[1600];
     int rx_frame_num = 0;
-    int expected_seq_num = 0;
+    int expected_seq_num = 2;
 
 	while (1)
 	{
@@ -102,12 +102,12 @@ int receiver(chanend rx)
         
         rx_frame_num++;
 
-		if (nbytes != 100)
+		if (nbytes != 400)
 		{
 			printstr("Error received ");
 			printint(nbytes);
 			printstr(" bytes, expected ");
-			printintln(100);
+			printintln(400);
 			return 0;
 		}
         
@@ -123,12 +123,23 @@ int receiver(chanend rx)
 
 		if (!check_test_frame(nbytes, expected_seq_num, rxbuffer))
 		{
+            unsigned mii_dropped, bad_crc, bad_length, address, filter;
+            int link_dropped;
+            mac_get_global_counters(rx, mii_dropped, bad_length, address, filter, bad_crc);
+            mac_get_link_counters(rx, link_dropped);
+            
+            printstr("mii_dropped: "); printintln(mii_dropped);
+            printstr("bad_length: "); printintln(bad_length);
+            printstr("address: "); printintln(address);
+            printstr("filter: "); printintln(filter);
+            printstr("bad_crc: "); printintln(bad_crc);
+            printstr("link_dropped: "); printintln(link_dropped);
 			return 0;
 		}
         
-        if (rx_frame_num == 3) return 1;
+        if (rx_frame_num == 142) return 1;
         
-        expected_seq_num += 2;
+        expected_seq_num += 1;
         
         
 	}
@@ -136,7 +147,7 @@ int receiver(chanend rx)
 	return 1;
 }
 
-int mac_rx_bad_crc_test(chanend tx, chanend rx)
+int mac_rx_frag_runts_test(chanend tx, chanend rx)
 {
 	return receiver(rx);
 }
@@ -144,7 +155,7 @@ int mac_rx_bad_crc_test(chanend tx, chanend rx)
 void runtests(chanend tx[], chanend rx[], int links)
 {
 	RUNTEST("init", init(rx, tx, links));
-	RUNTEST("Test #2.1 - Reception of frames with FCS errors", mac_rx_bad_crc_test(tx[0], rx[0]));
+	RUNTEST("Test #2.2 - Reception of fragments and runts", mac_rx_frag_runts_test(tx[0], rx[0]));
 	printstrln("Complete");
 	_Exit(0);
 }

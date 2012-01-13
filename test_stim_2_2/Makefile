@@ -8,7 +8,7 @@ TARGET ?= XR-AVB-LC-BRD
 # the project name
 APP_NAME =
 
-XSIM ?= 1
+XSIM ?= 0
 
 # The USED_MODULES variable lists other module used by the application.
 USED_MODULES = module_phy_setup
@@ -28,7 +28,7 @@ ifeq ($(TARGET),XR-AVB-LC-BRD)
     XCC_FLAGS += -DPORT_ETH_RST_N=PORT_ETH_RSTN
     XCC_FLAGS += -DPHY_ADDRESS=0
     XCC_FLAGS += -DETH_CORE_ID=1
-    ifeq (($XSIM),0)
+    ifeq ($(XSIM),0)
         XCC_FLAGS += -DXSCOPE_ENABLED=1
         XCC_FLAGS += -lxscope
     else

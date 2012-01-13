@@ -1,5 +1,8 @@
 #include <xs1.h>
 #include <print.h>
+#ifdef SIMULATION
+#include <stdio.h>
+#endif
 #include <platform.h>
 #include <xscope.h>
 #include "mii.h"
@@ -45,7 +48,7 @@ void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int 
 	timer tmr;
 	unsigned int time;
 
-	int i = 0, j = 0;
+	int i = 0;
     /*
 	int bytes_left;
 	unsigned int crc = 0;
@@ -59,123 +62,57 @@ void mii_transmit_frags(unsigned int buf[], out buffered port:32 p_mii_txd, int 
 	{
 		return;
 	}
-	else if (nibbles < 8)
+	else if (nibbles <= 8)
 	{
 		partout(p_mii_txd, nibbles*4, 0x55555555);
 	}
-	else if (nibbles == 8)
-	{
-		p_mii_txd <: 0x55555555;
-	}
-	else if (nibbles < 16)
+	else if (nibbles <=16)
 	{
 		p_mii_txd <: 0x55555555;
 		partout(p_mii_txd, (nibbles - 8)*4, 0x55555555);
 	}
-	else if (nibbles == 16)
+	else if (nibbles <= 24)
 	{
 		p_mii_txd <: 0x55555555;
 		p_mii_txd <: 0x55555555;
-	}
-	else if (nibbles < 24)
-	{
-		p_mii_txd <: 0x55555555;
-		p_mii_txd <: 0x55555555;
-		partout(p_mii_txd, (nibbles - 16)*4, 0x55555555);
+		partout(p_mii_txd, (nibbles - 16)*4, 0xD5555555);
 	}
 	else
 	{
 		int data_nibbles = nibbles - 24;
-		int nibls_left = 0;
+		int nibls_left = data_nibbles;
+        int tx_nibbles = 0;
 		
 		p_mii_txd <: 0x55555555;
 		p_mii_txd <: 0x55555555;
 		p_mii_txd <: 0xD5555555;
+        
+        // printstrln("=");
+        
+        // printf("data nibbles: %d\n", data_nibbles);
 		
 		if (nibbles > 24)
 		{
-			if (data_nibbles < 8)
-			{
-				partout(p_mii_txd, data_nibbles, buf[i]);
-			}
-			else
-			{
-				// j = 0, data_nibbles = 17
-				while (j < (data_nibbles - 7))
-				{
-					p_mii_txd <: buf[i];
-					i++;
-					j += 8;
-				}
-				
-				nibls_left = data_nibbles - j;
-			}
-		
+            do
+            {
+                if (nibls_left < 8) tx_nibbles = nibls_left;
+                else tx_nibbles = 8;
+                partout(p_mii_txd, tx_nibbles*4, buf[i]);
+                nibls_left -= 8;
+                // printf("nibbles left: %d\n", nibls_left);
+                // printf("tx nibbles: %d\n", tx_nibbles);
+                i++;
+            }
+            while (nibls_left > 0);
 		}
 	}
     
+    sync(p_mii_txd);
     
+    tmr :> time;
+    time+=100000;
+    tmr when timerafter(time) :> int tmp;
     
-    /*
-
-	p_mii_txd <: 0x55555555;
-	p_mii_txd <: 0x55555555;
-	p_mii_txd <: 0xD5555555;
-
-	word = buf[i];
-	p_mii_txd <: word;
-	i++;
-	crc32(crc, ~word, poly);
-	bytes_left -=4;
-	j+=4;
-
-	word = buf[i];
-	while ((j < (length-3)))
-	{
-		p_mii_txd <: word;
-		i++;
-		crc32(crc, word, poly);
-		word = buf[i];
-		j += 4;
-	}
-	bytes_left = length - j;
-    
-    if (bad_crc) crc |= 0x12345;
-
-	switch (bytes_left)
-	{
-		case 0:
-		crc32(crc, 0, poly);
-		crc = ~crc;
-		p_mii_txd <: crc;
-		break;
-		case 1:
-		crc8shr(crc, word, poly);
-		partout(p_mii_txd, 8, word);
-		crc32(crc, 0, poly);
-		crc = ~crc;
-		p_mii_txd <: crc;
-		break;
-		case 2:
-		partout(p_mii_txd, 16, word);
-		word = crc8shr(crc, word, poly);
-		crc8shr(crc, word, poly);
-		crc32(crc, 0, poly);
-		crc = ~crc;
-		p_mii_txd <: crc;
-		break;
-		case 3:
-		partout(p_mii_txd, 24, word);
-		word = crc8shr(crc, word, poly);
-		word = crc8shr(crc, word, poly);
-		crc8shr(crc, word, poly);
-		crc32(crc, 0, poly);
-		crc = ~crc;
-		p_mii_txd <: crc;
-		break;
-	}
-    
-    */
 }
 
 #pragma unsafe arrays
@@ -192,8 +129,6 @@ void mii_transmit(unsigned int buf[], int length, out buffered port:32 p_mii_txd
 
 	int j=0;
 	bytes_left = length;
-    
-    printstrln("Here");
 
 	p_mii_txd <: 0x55555555;
 	p_mii_txd <: 0x55555555;
@@ -253,7 +188,7 @@ void mii_transmit(unsigned int buf[], int length, out buffered port:32 p_mii_txd
 	}
 		
 		tmr :> time;
-		time+=196;
+		time+=100000;
 		tmr when timerafter(time) :> int tmp;
 }
 
@@ -289,20 +224,25 @@ void set_seq_num(unsigned int buf[], int n)
 
 int test(out buffered port:32 p_mii_txd)
 {
-    unsigned int buf[100];
+    unsigned int buf[400/4];
     int n = 0;
     unsigned char dest[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     unsigned char src[] = {0x00, 0x12, 0x34, 0x56, 0x78, 0x90};
     unsigned char etype[] = {0xF0, 0xF0};
     
-    create_packet(dest, src, etype, buf, 100);
-    set_seq_num(buf, 0);
+    create_packet(dest, src, etype, buf, 400);
     
     printstrln(""); // Flush the output. Bug in XScope it seems.
-    mii_transmit(buf, 100, p_mii_txd, 0);
+    printstrln("Start");
     
-    
-    // mii_transmit_frags(buf, p_mii_txd, 2);
+    for (int i=2; i < 144; i++)
+    {
+        set_seq_num(buf, i);
+        mii_transmit(buf, 400, p_mii_txd, 0);
+        mii_transmit_frags(buf, p_mii_txd, i);
+    }
+    set_seq_num(buf, 144);
+    mii_transmit(buf, 400, p_mii_txd, 0);
 
     printstrln("Finish");
 
@@ -333,7 +273,7 @@ int main(void)
             
             test(mii.p_mii_txd);
         }
-        #ifdef SIMULATION
+    #ifdef SIMULATION
         on stdcore[ETH_CORE_ID]:
         {
             configure_clock_rate(clk, 100, 4);
@@ -342,7 +282,7 @@ int main(void)
             
             while (1);
         }
-        #endif
+    #endif
     }
 
     return 0;

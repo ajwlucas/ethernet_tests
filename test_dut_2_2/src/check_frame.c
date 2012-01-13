@@ -11,19 +11,23 @@ int check_test_frame(int len, unsigned int expected_seq, unsigned char bytes[])
     if (seq_num != expected_seq)
     {
         printstr("Error receiving frame, unexpected seq = "); 
-        printintln(seq_num);
+        printint(seq_num);
+        printstr(" ,expecting = ");
+        printintln(expected_seq);
         return 0;
     }
     
+    
     for (int i=20; i < len; i++)
     {
-        if (bytes[i] != i)
+        if (bytes[i] != (i%256))
         {
             printstr("Error receiving frame, unexpected byte = ");
 			printintln(i);
             return 0;
         }
     }
+    
 
 	return 1;
 }
