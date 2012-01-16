@@ -86,26 +86,60 @@ unsigned short get_ethertype(unsigned char buf[])
 	return ((unsigned short)buf[12]) << 8 | buf[13];
 }
 
-
-int receiver(chanend rx, int first_seq_num, int last_seq_num)
+int dummy_rx(chanend rx)
 {
 	unsigned char rxbuffer[1600];
-    int rx_frame_num = 0;
-    int expected_seq_num = first_seq_num;
+	while (1)
+	{
+		unsigned int src_port;
+		unsigned int nbytes;
+        unsigned short etype;
+
+		mac_rx(rx, rxbuffer, nbytes, src_port);
+
+		printstr("RX "); printint(nbytes); printstrln(" bytes");
+	}
+
+	return 1;
+
+}
+
+int len_receiver(chanend rx, int min_len, int max_len)
+{
+	unsigned char rxbuffer[1600];
+    timer t;
+    unsigned timeout;
+    int expect_no_more = 0;
 
 	while (1)
 	{
 		unsigned int src_port;
 		unsigned int nbytes;
         unsigned short etype;
-		mac_rx(rx, rxbuffer, nbytes, src_port);
 
-		if (nbytes != 400)
+        select
+        {
+			case mac_rx(rx, rxbuffer, nbytes, src_port):
+			{
+				break;
+			}
+			// This timeout needs to be greater than the IFG+RX time of the next potential packet
+			case expect_no_more => t when timerafter(timeout+500000) :> void :
+			{
+				printstrln("timeout");
+				// Timed out before receiving another packet - PASS
+				return 1;
+			}
+
+		}
+		
+
+		if (nbytes > max_len)
 		{
 			printstr("Error received ");
 			printint(nbytes);
-			printstr(" bytes, expected ");
-			printintln(400);
+			printstr(" bytes, expected < ");
+			printintln(max_len);
 			return 0;
 		}
         
@@ -119,53 +153,40 @@ int receiver(chanend rx, int first_seq_num, int last_seq_num)
 			return 0;
 		}
 
-		if (!check_test_frame(nbytes, expected_seq_num, rxbuffer))
-		{
-            unsigned mii_dropped, bad_crc, bad_length, address, filter;
-            int link_dropped;
-            mac_get_global_counters(rx, mii_dropped, bad_length, address, filter, bad_crc);
-            mac_get_link_counters(rx, link_dropped);
-            
-            printstr("mii_dropped: "); printintln(mii_dropped);
-            printstr("bad_length: "); printintln(bad_length);
-            printstr("address: "); printintln(address);
-            printstr("filter: "); printintln(filter);
-            printstr("bad_crc: "); printintln(bad_crc);
-            printstr("link_dropped: "); printintln(link_dropped);
-			return 0;
-		}
         
-        if (rx_frame_num == (last_seq_num - first_seq_num))
+        if (nbytes == max_len)
         {
-    		// Received last packet. End test.
-	        return 1;
+        	if (!expect_no_more)
+        	{
+    			// Run once more to see if this is the maximum sized packet we can receive
+    			expect_no_more = 1;
+    			t:> timeout;
+    		}
         }
-        rx_frame_num++;
-        
-        expected_seq_num += 1;
         
 	}
 
 	return 1;
 }
 
-int mac_rx_frag_test(chanend tx, chanend rx)
+int mac_rx_untagged_len_test(chanend tx, chanend rx)
 {
-	return receiver(rx, 2, 144);
+	return len_receiver(rx, 1514, 1518);
+	// return dummy_rx(rx);
 }
 
 int mac_rx_runt_test(chanend tx, chanend rx)
 {
-	return receiver(rx, 5, 64);
+	return 0;// receiver(rx, 5, 64, 0);
 }
 
 void runtests(chanend tx[], chanend rx[], int links)
 {
 	RUNTEST("init", init(rx, tx, links));
-#ifdef TEST_2A
-	RUNTEST("Test #2.2a - Reception of fragments and runts (Part A = fragments)", mac_rx_frag_test(tx[0], rx[0]));
+#ifdef TEST_3A
+	RUNTEST("Test #2.3a - Reception of oversized frames (Part A = untagged)", mac_rx_untagged_len_test(tx[0], rx[0]));
 #endif
-#ifdef TEST_2B
+#ifdef TEST_3B
 	RUNTEST("Test #2.2b - Reception of fragments and runts (Part B = runts)", mac_rx_runt_test(tx[0], rx[0]));
 #endif
 	printstrln("Complete");

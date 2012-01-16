@@ -9,8 +9,8 @@ TARGET ?= XR-AVB-LC-BRD
 APP_NAME =
 
 XSIM ?= 0
-TEST_2A ?= 1
-TEST_2B ?= 1
+TEST_3A ?= 1
+TEST_3B ?= 1
 
 # The USED_MODULES variable lists other module used by the application.
 USED_MODULES = module_ethernet module_locks
@@ -26,12 +26,12 @@ else
     XCC_FLAGS = -g -O3
 endif
 
-ifeq ($(TEST_2A),1)
-	XCC_FLAGS += -DTEST_2A
+ifeq ($(TEST_3A),1)
+	XCC_FLAGS += -DTEST_3A
 endif
 
-ifeq ($(TEST_2B),1)
-	XCC_FLAGS += -DTEST_2B
+ifeq ($(TEST_3B),1)
+	XCC_FLAGS += -DTEST_3B
 endif
 
 ifeq ($(TARGET),XR-AVB-LC-BRD)

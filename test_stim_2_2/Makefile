@@ -9,6 +9,8 @@ TARGET ?= XR-AVB-LC-BRD
 APP_NAME =
 
 XSIM ?= 0
+TEST_2A ?= 1
+TEST_2B ?= 1
 
 # The USED_MODULES variable lists other module used by the application.
 USED_MODULES = module_phy_setup
@@ -22,6 +24,14 @@ ifeq "$(CONFIG)" "Debug"
     XCC_FLAGS = -g -O0
 else
     XCC_FLAGS = -g -O3
+endif
+
+ifeq ($(TEST_2A),1)
+	XCC_FLAGS += -DTEST_2A
+endif
+
+ifeq ($(TEST_2B),1)
+	XCC_FLAGS += -DTEST_2B
 endif
 
 ifeq ($(TARGET),XR-AVB-LC-BRD)

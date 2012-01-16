@@ -341,7 +341,7 @@ int test_2a(out buffered port:32 p_mii_txd)
     {
         set_seq_num(buf, i);
         mii_transmit(buf, 400, p_mii_txd, 0);
-        // mii_transmit_frags(buf, p_mii_txd, i);
+        mii_transmit_frags(buf, p_mii_txd, i);
     }
     set_seq_num(buf, 144);
     mii_transmit(buf, 400, p_mii_txd, 0);
@@ -401,8 +401,12 @@ int main(void)
 
             printstrln(""); // Flush the output. Bug in XScope it seems.
 
-            // test_2a(mii.p_mii_txd);
+    #ifdef TEST_2A
+            test_2a(mii.p_mii_txd);
+    #endif
+    #ifdef TEST_2B
             test_2b(mii.p_mii_txd);
+    #endif
         }
     #ifdef SIMULATION
         on stdcore[ETH_CORE_ID]:
