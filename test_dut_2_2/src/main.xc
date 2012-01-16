@@ -87,11 +87,11 @@ unsigned short get_ethertype(unsigned char buf[])
 }
 
 
-int receiver(chanend rx)
+int receiver(chanend rx, int first_seq_num, int last_seq_num)
 {
 	unsigned char rxbuffer[1600];
     int rx_frame_num = 0;
-    int expected_seq_num = 2;
+    int expected_seq_num = first_seq_num;
 
 	while (1)
 	{
@@ -99,8 +99,6 @@ int receiver(chanend rx)
 		unsigned int nbytes;
         unsigned short etype;
 		mac_rx(rx, rxbuffer, nbytes, src_port);
-        
-        rx_frame_num++;
 
 		if (nbytes != 400)
 		{
@@ -137,25 +135,35 @@ int receiver(chanend rx)
 			return 0;
 		}
         
-        if (rx_frame_num == 142) return 1;
+        if (rx_frame_num == (last_seq_num - first_seq_num))
+        {
+    		// Received last packet. End test.
+	        return 1;
+        }
+        rx_frame_num++;
         
         expected_seq_num += 1;
-        
         
 	}
 
 	return 1;
 }
 
-int mac_rx_frag_runts_test(chanend tx, chanend rx)
+int mac_rx_frag_test(chanend tx, chanend rx)
 {
-	return receiver(rx);
+	return receiver(rx, 2, 144);
+}
+
+int mac_rx_runt_test(chanend tx, chanend rx)
+{
+	return receiver(rx, 5, 64);
 }
 
 void runtests(chanend tx[], chanend rx[], int links)
 {
 	RUNTEST("init", init(rx, tx, links));
-	RUNTEST("Test #2.2 - Reception of fragments and runts", mac_rx_frag_runts_test(tx[0], rx[0]));
+	// RUNTEST("Test #2.2a - Reception of fragments and runts (Part A = fragments)", mac_rx_frag_test(tx[0], rx[0]));
+	RUNTEST("Test #2.2b - Reception of fragments and runts (Part B = runts)", mac_rx_runt_test(tx[0], rx[0]));
 	printstrln("Complete");
 	_Exit(0);
 }
