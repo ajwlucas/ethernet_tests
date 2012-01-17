@@ -1,1 +1,0 @@
-xsim --vcd-tracing "-core stdcore[1] -ports -o wave.vcd" .\bin\test_stim_2_2.xe --plugin LoopbackPort.dll '-port stdcore[1] XS1_PORT_1K 1 0 -port stdcore[1] XS1_PORT_1C 1 0'

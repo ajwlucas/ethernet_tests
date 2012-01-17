@@ -104,90 +104,45 @@ int dummy_rx(chanend rx)
 
 }
 
-int len_receiver(chanend rx, int min_len, int max_len)
+int len_rx(chanend rx)
 {
 	unsigned char rxbuffer[1600];
     timer t;
     unsigned timeout;
-    int expect_no_more = 0;
 
 	while (1)
 	{
 		unsigned int src_port;
 		unsigned int nbytes;
-        unsigned short etype;
+        unsigned short len_etype;
 
-        select
-        {
-			case mac_rx(rx, rxbuffer, nbytes, src_port):
-			{
-				break;
-			}
-			// This timeout needs to be greater than the IFG+RX time of the next potential packet
-			case expect_no_more => t when timerafter(timeout+500000) :> void :
-			{
-				// Timed out before receiving another packet - PASS
-				return 1;
-			}
+		mac_rx(rx, rxbuffer, nbytes, src_port);
 
-		}
-		
+        len_etype = get_ethertype(rxbuffer);
 
-		if (nbytes > max_len)
+		if (len_etype > (nbytes - 18))
 		{
 			printstr("Error received ");
-			printint(nbytes);
-			printstr(" bytes, expected < ");
-			printintln(max_len);
+			printint(nbytes - 18);
+			printstr(" data/pad bytes, length field is ");
+			printintln(len_etype);
 			return 0;
 		}
-        
-        etype = get_ethertype(rxbuffer);
-		if (etype != 0xF0F0)
-		{
-			printstr("Error in ethertype. Received ");
-			printhex(etype);
-			printstr(" expected ");
-			printhexln(0xF0F0);
-			return 0;
-		}
-
-        
-        if (nbytes == max_len)
-        {
-        	if (!expect_no_more)
-        	{
-    			// Run once more to see if this is the maximum sized packet we can receive
-    			expect_no_more = 1;
-    			t:> timeout;
-    		}
-        }
         
 	}
 
 	return 1;
 }
 
-int mac_rx_untagged_len_test(chanend tx, chanend rx)
+int mac_rx_len_field_test(chanend tx, chanend rx)
 {
-	return len_receiver(rx, 1514, 1518);
-	// return dummy_rx(rx);
-}
-
-int mac_rx_runt_test(chanend tx, chanend rx)
-{
-	return 0;// receiver(rx, 5, 64, 0);
+	return len_rx(rx);
 }
 
 void runtests(chanend tx[], chanend rx[], int links)
 {
 	RUNTEST("init", init(rx, tx, links));
-#ifdef TEST_3A
-	RUNTEST("Test #2.3a - Reception of oversized frames (Part A = untagged)", mac_rx_untagged_len_test(tx[0], rx[0]));
-#endif
-#ifdef TEST_3B
-	RUNTEST("Test #2.2b - Reception of fragments and runts (Part B = runts)", mac_rx_runt_test(tx[0], rx[0]));
-#endif
+	RUNTEST("Test #2.4 - Reception of frames with length errors", mac_rx_len_field_test(tx[0], rx[0]));
 	printstrln("Complete");
 	_Exit(0);
 }
