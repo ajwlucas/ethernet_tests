@@ -42,7 +42,7 @@ void wait(int ticks)
 }
 
 #pragma unsafe arrays
-void mii_transmit(unsigned int buf[], int length, out buffered port:32 p_mii_txd, int bad_crc, int bad_sfd)
+void mii_transmit(unsigned int buf[], int length, out buffered port:32 p_mii_txd, int bad_crc, int bad_sfd, int unaligned)
 {
     register const unsigned poly = 0xEDB88320;
     timer tmr;
@@ -128,10 +128,12 @@ void mii_transmit(unsigned int buf[], int length, out buffered port:32 p_mii_txd
         p_mii_txd <: crc;
         break;
     }
+
+    if (unaligned) partout(p_mii_txd, 4, 0xFFFFFFFF); // A nibble extra
         
-        tmr :> time;
-        time+=96;
-        tmr when timerafter(time) :> int tmp;
+    tmr :> time;
+    time+=96;
+    tmr when timerafter(time) :> int tmp;
 }
 
 // num_bytes is total frame length including 14 bytes header but not including 4 bytes CRC
@@ -171,7 +173,7 @@ void set_seq_num(unsigned int buf[], int n)
     buf[4] = n;
 }
 
-int test_6(out buffered port:32 p_mii_txd)
+int test_7(out buffered port:32 p_mii_txd)
 {
     unsigned int buf[1600/4];
     int n = 0;
@@ -181,22 +183,22 @@ int test_6(out buffered port:32 p_mii_txd)
     
     create_packet(dest, src, len, buf, 500);
     
-    printstrln("Running test 6");
+    printstrln("Running test 7");
 
     set_seq_num(buf, 0);
-    mii_transmit(buf, 500, p_mii_txd, 0, 0);
+    mii_transmit(buf, 500, p_mii_txd, 0, 0, 0);
 
     set_seq_num(buf, 1);
-    mii_transmit(buf, 500, p_mii_txd, 0, 1); // Bad SFD 1
+    mii_transmit(buf, 500, p_mii_txd, 0, 0, 1); // Alignment error, valid FCS
 
     set_seq_num(buf, 2);
-    mii_transmit(buf, 500, p_mii_txd, 0, 0);
+    mii_transmit(buf, 500, p_mii_txd, 0, 0, 0);
 
     set_seq_num(buf, 3);
-    mii_transmit(buf, 500, p_mii_txd, 0, 2); // Bad SFD 2
+    mii_transmit(buf, 500, p_mii_txd, 1, 0, 1); // Alignment error, invalid FCS
 
     set_seq_num(buf, 4);
-    mii_transmit(buf, 500, p_mii_txd, 0, 0);
+    mii_transmit(buf, 500, p_mii_txd, 0, 0, 0);
 
     printstrln("Finished.");
 
@@ -226,7 +228,7 @@ int main(void)
 
             printstrln(""); // Flush the output. Bug in XScope it seems.
 
-            test_6(mii.p_mii_txd);
+            test_7(mii.p_mii_txd);
         }
     #ifdef SIMULATION
         on stdcore[ETH_CORE_ID]:

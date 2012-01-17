@@ -2,6 +2,14 @@
 #include <string.h>
 #include <print.h>
 
+int get_seq_num(unsigned char bytes[])
+{
+    int seq_num;
+    memcpy(&seq_num, &bytes[16], 4);
+
+    return seq_num;
+}
+
 int check_test_frame(int len, unsigned int expected_seq, unsigned char bytes[])
 {
     unsigned int seq_num;
